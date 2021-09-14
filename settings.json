@@ -1,0 +1,10 @@
+{
+	"apiKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImRvbmFsZGVyb2JlcnRzQGdtYWlsLmNvbSIsImlhdCI6MTYzMDc3OTg1NywiZXhwIjo3OTM3OTc5ODU3fQ.j19Lva4FcUGvuEgDLglb2jj15wtrozz0afd5SprLjE4",
+	"coinPairs": ["BTC/USDT"],
+	"intervals": [
+		"4h",
+		"1d"
+	],
+	"percentageTolerance": 1.5,
+	"waitInterval": 5000
+}
