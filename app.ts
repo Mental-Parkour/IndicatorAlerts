@@ -18,7 +18,7 @@ const password = process.env.AUTHKEY || 'cockandballs';
 
 let dies: diesDT[] = [];
 
-const life = 0.5 * 60 * 1000;
+const life = 1 * 60 * 1000;
 
 const server = createServer();
 const wss = new WebSocketServer({ noServer: true });
@@ -76,7 +76,7 @@ wss.on('connection', function connection(ws: any, request: any, client: any) {
 });
 
 server.on('upgrade', function upgrade(request: any, socket: any, head: any) {
-  // This function is not defined on purpose. Implement it with your own logic.
+	console.log('upgrade attemp');
 	if(request.headers.authorization !== password) {
 		socket.write('u suck');
 		console.log('Hackers');
@@ -98,7 +98,7 @@ setInterval(() => {
 		}
 	});
 	wss.clients.forEach( (ws: any) => ws.send(`{"event": "pong"}`));
-}, life);
+}, life + 0.3 * 60 * 1000);
 
 function sendMessage(id: number, event: string, message?: string)  {
 	//send to all (use it for when to send triggers)
