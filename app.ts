@@ -14,7 +14,7 @@ const WebSocketServer = ws.WebSocketServer;
 
 const port = process.env.PORT || 6969;
 console.log(port);
-const password = process.env.AUTHKEY || 'dogwater';
+const password = process.env.AUTHKEY || 'cockandballs';
 
 let dies: diesDT[] = [];
 
@@ -185,7 +185,6 @@ async function getIndicatorValues(settings): Promise<taAPIresponse> {
 					resolve(null);
 				}
 
-
 				const body: Buffer[] = [];
 
 				response.on('data', chunk => body.push(chunk));
@@ -305,7 +304,6 @@ async function main() {
 			const response = await getIndicatorValues(payload);
 			if (!response) continue;
 
-
 			// Check if any indicators are producing a signal
 
 			const coinPrice = response[0].result.close;
@@ -381,7 +379,7 @@ async function main() {
 
 
 
-console.log(`Settings:\n==================================\nCoinpairs: ${coinPairs.join(', ')}\nPercentage Tolerance: ${percentageTolerance}%,\nIntervals: ${intervals.join(', ')}\nEstimated runtime: ${(coinPairs.length * waitInterval * intervals.length) / 1000} seconds\n==================================\n\n`);
+console.log(`Settings:\n==================================\nCoinpairs: ${coinPairs.join(', ')}\nPercentage Tolerance: ${percentageTolerance}%,\nIntervals: ${intervals.join(', ')}\nPass: '${password}'\nEstimated runtime: ${(coinPairs.length * waitInterval * intervals.length) / 1000} seconds\n==================================\n\n`);
 
 main();
 setInterval(main, 10 * 60 * 1000); //every 10 min
