@@ -1,36 +1,148 @@
+//Ground Control
+
+console.log('working');
+
 import https from 'https';
 import { taAPIresponse, IndicatorSettings, IndicatorValueResponse_MACD } from './interfaces';
 import { apiKey, coinPairs, intervals, percentageTolerance, waitInterval } from './settings.json';
 
-//Websocket
-//EXPRESS HTTP
+//WEBSOCKET
 
-const express = require('express');
-const PORT = process.env.PORT || 3000;
-const INDEX = '/';
+const ws = require('ws');
+const createServer = require('http').createServer;
+const WebSocketServer = ws.WebSocketServer;
 
-const server = express()
-  .use((req, res) => res.sendFile(INDEX, { root: __dirname }))
-  .listen(PORT, () => console.log(`Listening on ${PORT}`));
+const port = process.env.PORT || 6969;
+console.log(port);
+const password = process.env.AUTHKEY || 'dogwater';
 
-//create websocket
-const { Server } = require('ws');
+let dies: diesDT[] = [];
 
-const wss = new Server({ server });
+const life = 0.5 * 60 * 1000;
 
-//Handle connections
+const server = createServer();
+const wss = new WebSocketServer({ noServer: true });
 
-wss.on('connection', (ws) => {
-	console.log('Client connected');
-	ws.on('close', () => console.log('Client disconnected'));
-  });
+interface diesDT {
+	id: number,
+	dieTime: number
+}
 
-//send data
-  setInterval(() => {
-	wss.clients.forEach((client) => {
-	  client.send(new Date().toTimeString());
+function findWSIndex(id: number): number {
+	return dies.findIndex((die) => {
+		if(die.id === id)
+			return true;
+	})
+}
+
+let newId = -1;
+
+wss.on('connection', function connection(ws: any, request: any, client: any) {
+	newId++;
+	let id = newId;
+	const dieTime = Date.now() + life;
+	dies.push(
+		{
+			id,
+			dieTime
+		}
+	);
+
+	ws.on('message', function message(msg: any) {
+		let message;
+		try {
+			message = JSON.parse(msg);
+		} catch(e) {
+			sendMessage(id, 'invalidJSON', `'${msg}' is not valid stringified JSON`);
+		}
+
+		if(message) {
+			console.log(`Received event: '${message.event}' and message: '${message.message}' from Major Tom`);
+			if(message.event == 'ping') {
+				sendMessage(id, 'pong');
+				dies[ findWSIndex(id) ].dieTime = Date.now() + life; //update die time
+			}
+		}
 	});
-  }, 1000);
+  
+	ws.send(
+		JSON.stringify(
+			{
+				event: 'Greetings',
+				message: 'Ground Control to Major Tom'
+			}
+		)
+	)
+});
+
+server.on('upgrade', function upgrade(request: any, socket: any, head: any) {
+  // This function is not defined on purpose. Implement it with your own logic.
+	if(request.headers.authorization !== password) {
+		socket.write('u suck');
+		console.log('Hackers');
+		socket.destroy();
+	}
+
+    wss.handleUpgrade(request as any, socket as any, head as any, function done(ws: any) {
+      wss.emit('connection', ws as any, request as any);
+    });
+});
+	
+server.listen(port);
+console.log(`listening on port: ${port}`)
+
+setInterval(() => {
+	dies.forEach(ws => {
+		if( ws.dieTime < Date.now() ) {
+			sendMessage(ws.id as number, 'die', 'kys');
+		}
+	});
+	wss.clients.forEach( (ws: any) => ws.send(`{"event": "pong"}`));
+}, life);
+
+function sendMessage(id: number, event: string, message?: string)  {
+	//send to all (use it for when to send triggers)
+	if(id === -1) {
+		if(event === 'die') {
+			wss.clients.forEach( (client: any) => {
+				client.close();
+			});
+		} else {
+			wss.clients.forEach( (client: any) => {
+				client.send(JSON.stringify({
+					event,
+					message
+				}))
+			});
+		}
+	} else {
+		//send to specific client, used for pong request
+		let ia = -1;
+		const WSIndex = findWSIndex(id);
+		if(event === 'die') {
+			wss.clients.forEach( (client: any) => {
+				ia++;
+				if(ia == WSIndex) {
+					client.close();
+				}
+				dies.splice(WSIndex, 1);
+			});
+		} else {
+			wss.clients.forEach( (client: any) => {
+				ia++;
+				if(ia == WSIndex) {
+					client.send(JSON.stringify({
+						event,
+						message
+					}))
+				}
+			});
+		}
+	}
+}
+
+//END WEBSOCKET
+
 // Functions
 
 async function Sleep(ms: number = 1000): Promise<void> {
@@ -129,16 +241,13 @@ const indicators: IndicatorSettings = {
 
 // Main
 
-const indicatorPrevIndicatorValues = Object.fromEntries( Object.keys(indicators).map(indicator => ([indicator, undefined])) );
-const coinPairIndicatorValues = Object.fromEntries( coinPairs.map(coinPair => [coinPair, indicatorPrevIndicatorValues]) );
-const prevIndicatorValues = Object.fromEntries( intervals.map(interval => [interval,  coinPairIndicatorValues]) );
+const coinPairIndicatorValues = Object.fromEntries( coinPairs.map(coinPair => [coinPair, undefined]) );
+const prevIndicatorValues: any = Object.fromEntries( intervals.map(interval => [interval,  coinPairIndicatorValues]) );
 
 
-
-async function main(socket) {
-	console.log('STARTING')
-	socket.write('FUCKFUCKFUCK');
+async function main() {
 	const triggered: string[] = [];
+
 
 	for (const coinPair of coinPairs) {
 
@@ -193,9 +302,7 @@ async function main(socket) {
 				}
 			};
 
-			console.log('requesting...')
 			const response = await getIndicatorValues(payload);
-			console.log('recieved...')
 			if (!response) continue;
 
 
@@ -205,7 +312,7 @@ async function main(socket) {
 
 			for (let i = 1; i < response.length; i++) {
 				const { id: indicator, result } = response[i];
-				const prevTrigger = prevIndicatorValues[interval][coinPair][indicator];
+				const prevTrigger = prevIndicatorValues[i - 1];
 
 
 				// 50 EMA, 200 EMA and VWAP
@@ -215,22 +322,22 @@ async function main(socket) {
 
 
 					if (isTrigger) {
-						prevIndicatorValues[interval][coinPair][indicator] = true;
+						prevIndicatorValues[interval][indicator] = true;
 
 						const msg = parseReturnMSG(coinPair, interval, indicator);
 						triggered.push(msg);
 					}
 
-					else prevIndicatorValues[interval][coinPair][indicator] = false;
+					else prevIndicatorValues[interval][indicator] = false;
 				}
 
 
 				// RSI
 				if (i == 3) {
-						const momentum = (result as any).value <= 30 ? 'OVERSOLD' : (result as any).value >= 70 ? 'OVERBOUGHT': null;
+					const momentum = (result as any).value <= 30 ? 'OVERSOLD' : (result as any).value >= 70 ? 'OVERBOUGHT': null;
 					if (prevTrigger == momentum) continue;
 
-					prevIndicatorValues[interval][coinPair][indicator] = momentum;
+					prevIndicatorValues[interval][indicator] = momentum;
 
 					if (momentum) {
 						const msg = parseReturnMSG(coinPair, interval, indicator, momentum.toLowerCase());
@@ -247,7 +354,7 @@ async function main(socket) {
 					const momentum = histogram < 0 && prevHistogram > 0 ? 'CROSSED OVER' : histogram > 0 && prevHistogram < 0 ? 'CROSSED UNDER' : null;
 					if (prevTrigger == momentum) continue;
 
-					prevIndicatorValues[interval][coinPair][indicator] = momentum;
+					prevIndicatorValues[interval][indicator] = momentum;
 
 					if(momentum) {
 						const msg = parseReturnMSG(coinPair, interval, indicator, momentum.toLowerCase());
@@ -268,13 +375,13 @@ async function main(socket) {
 	// if (triggered.length) console.log(Date.now(), '\n', triggered, '\n');
 
 	console.log(prevIndicatorValues);
-	console.log(Date.now(), '\n', triggered, '\n');	
-	socket.write(JSON.stringify({ 'triggers': triggered, 'time': Date.now() }));
+	sendMessage(-1, 'Trigger Messages', triggered.toString());
+	console.log(Date.now(), '\n', triggered, '\n');
 }
 
 
 
 console.log(`Settings:\n==================================\nCoinpairs: ${coinPairs.join(', ')}\nPercentage Tolerance: ${percentageTolerance}%,\nIntervals: ${intervals.join(', ')}\nEstimated runtime: ${(coinPairs.length * waitInterval * intervals.length) / 1000} seconds\n==================================\n\n`);
 
-// main();
-// setInterval(main, 10000);
+main();
+setInterval(main, 10 * 60 * 1000); //every 10 min

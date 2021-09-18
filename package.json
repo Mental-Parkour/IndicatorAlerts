@@ -3,8 +3,7 @@
 	"version": "1.0.0",
 	"main": "app.ts",
 	"scripts": {
-		"start": "ts-node app.ts",
-		"client": "ts-node Reciever.ts"
+		"start": "ts-node app.ts"
 	},
 	"devDependencies": {
 		"@types/node": "^16.9.1",
@@ -12,10 +11,8 @@
 		"typescript": "^4.4.3"
 	},
 	"dependencies": {
-		"express": "^4.17.1",
-		"net": "^1.0.2",
-		"node-ts": "^5.1.2",
-		"websocket": "^1.0.34",
+		"install": "^0.13.0",
+		"npm": "^7.24.0",
 		"ws": "^8.2.2"
 	}
 }
